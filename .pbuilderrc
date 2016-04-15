@@ -77,6 +77,11 @@ elif [ "$ARCH" == "armel" -o "$ARCH" == "armhf" ]; then
     fi
 fi
 
+# Set up other mirrors for Ubuntu - -security is generally needed for many packages.
+if [ "$OS" == "ubuntu" ]; then
+    OTHERMIRROR="$OTHERMIRROR | deb $MIRRORSITE ${DIST}-security $COMPONENTS"
+fi
+
 NAME="$OS-$DIST-$ARCH"
 
 if [ "$ARCH" == "armel" ] && [ "$(dpkg --print-architecture)" != "armel" ]; then
