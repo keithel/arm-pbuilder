@@ -2,6 +2,20 @@
 
 set -e
 
+if [ -e "/etc/lsb-release" ]; then
+    source /etc/lsb-release
+fi
+
+if [ -z "$OS" -a ! -z $DISTRIB_ID ]; then
+    read -n 1 -p "No OS provided. Build a $DISTRIB_ID pbuilder environment [Y/n]? " osdefaultok
+    echo
+    if [ "$osdefaultok" == "n" -o "$osdefaultok" == "N" ]; then
+        echo "No OS provided."
+        exit 1
+    fi
+    OS=$(echo "$DISTRIB_ID" | awk '{ print tolower($0) }')
+fi
+
 if [ "$OS" == "debian" ]; then
     MIRRORSITE="http://ftp.no.debian.org/debian/"
     COMPONENTS="main contrib non-free"
@@ -13,6 +27,11 @@ if [ "$OS" == "debian" ]; then
         #EXTRAPACKAGES="$EXTRAPACKAGES debian-backports-keyring"
         OTHERMIRROR="$OTHERMIRROR | deb $MIRRORSITE wheezy-backports $COMPONENTS"
     fi
+
+    if [ ! -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
+        echo >&2 "Debian archive keyring is not installed, installing it."
+        sudo -p "Installing the Debian archive keyring, Please provide your password: " apt-get -y install debian-archive-keyring
+    fi
 elif [ "$OS" == "raspbian" ]; then
     MIRRORSITE="http://ftp.acc.umu.se/mirror/raspbian/raspbian/"
     COMPONENTS="main contrib non-free"
@@ -20,6 +39,14 @@ elif [ "$OS" == "raspbian" ]; then
         "--keyring=/usr/share/keyrings/raspbian-archive-keyring.gpg")
     : ${DIST:="wheezy"}
     : ${ARCH:="armhf"}
+
+    if [ ! -f "/usr/share/keyrings/raspbian-archive-keyring.gpg" ]; then
+        KEYRING_TMPDIR=$( mktemp -t -d raspbian-keyring-install.XXXXX )
+        wget http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-keyring/raspbian-archive-keyring_20120528.2_all.deb -P $KEYRING_TMPDIR
+        echo >&2 "Raspbian archive keyring is not installed, installing it."
+        sudo -p "Installing the Raspbian archive keyring, Please provide your password: " dpkg -i $KEYRING_TMPDIR/raspbian-archive-keyring_20120528.2_all.deb
+        rm -Rf $KEYRING_TMPDIR
+    fi
 elif [ "$OS" == "ubuntu" ]; then
     MIRRORSITE="http://no.archive.ubuntu.com/ubuntu/"
     COMPONENTS="main restricted universe multiverse"
@@ -38,6 +65,16 @@ fi
 if [ "$ARCH" == "" ]; then
     echo "ARCH is not set"
     exit 1
+elif [ "$ARCH" == "armel" -o "$ARCH" == "armhf" ]; then
+    if [ ! -e "/usr/bin/qemu-arm-static" ]; then
+        echo >&2 "qemu-user-static is not installed. This is required to work with arm pbuilder environments, installing it now."
+        sudo -p "Installing qemu-user-static, Please provide your password: " apt-get -y install qemu-user-static
+    fi
+
+    if [ "$OS" == "ubuntu" ]; then
+        # For Ubuntu arm, we cannot use a standard mirror - have to use ports.ubuntu.com -- the mirrors don't mirror arm builds yet.
+        MIRRORSITE="http://ports.ubuntu.com/"
+    fi
 fi
 
 NAME="$OS-$DIST-$ARCH"
