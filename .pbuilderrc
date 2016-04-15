@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Original author: Stein Magnus Jodal , 20150308
+# Source: https://jodal.no/2015/03/08/building-arm-debs-with-pbuilder/
+
+# Modifications by: Keith Kyzivat <kamaji@gmail.com> 20150415
+
 set -e
 
 if [ -e "/etc/lsb-release" ]; then
